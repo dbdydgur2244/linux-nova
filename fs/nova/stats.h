@@ -165,6 +165,9 @@ enum timing_category {
 
 	/* Sentinel */
 	TIMING_NUM,
+
+    /* Back up */
+    do_backup_t,
 };
 
 enum stats_category {

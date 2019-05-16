@@ -34,8 +34,14 @@ static int nova_execute_invalidate_reassign_logentry(struct super_block *sb,
 			fw_entry->reassigned = 1;
 		if (num_free)
 			fw_entry->invalid_pages += num_free;
-		if (fw_entry->invalid_pages == fw_entry->num_pages)
+		if (fw_entry->invalid_pages == fw_entry->num_pages) {
 			invalid = 1;
+			// need to backup, should prevent fast garbage collection
+			if (fw_entry->padding == (u8)2) {
+				invalid = 0;
+				fw_entry->invalid_pages -= num_free; // because increasing invalid_pages is already done
+			}
+		}
 		break;
 	case DIR_LOG:
 		if (reassign) {

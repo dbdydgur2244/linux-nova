@@ -1147,4 +1147,6 @@ void nova_print_free_lists(struct super_block *sb);
 int nova_test_perf(struct super_block *sb, unsigned int func_id,
 	unsigned int poolmb, size_t size, unsigned int disks);
 
+/* backup.c */
+bool nova_calculate_rari(struct nova_file_write_entry *prev_entry, struct nova_file_write_entry *new_entry);
 #endif /* __NOVA_H */

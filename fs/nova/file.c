@@ -510,6 +510,11 @@ do_dax_mapping_read(struct file *filp, char __user *buf,
 		}
 
 		entry = nova_get_write_entry(sb, sih, index);
+        // add for read flag
+        if (entry) {
+			entry->padding = (u8)1;
+			nova_dbgv("data block read flag: [%u]\n", entry->padding);
+		}
 		if (unlikely(entry == NULL)) {
 			nova_dbgv("Required extent not found: pgoff %lu, inode size %lld\n",
 				index, isize);
@@ -625,7 +630,9 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 	struct nova_inode_info_header *sih = &si->header;
 	struct super_block *sb = inode->i_sb;
 	struct nova_inode *pi, inode_copy;
-	struct nova_file_write_entry entry_data;
+	struct nova_file_write_entry *entry_data;
+	struct nova_file_write_entry curr_entry;
+	struct nova_inode_log_page curr_page;
 	struct nova_inode_update update;
 	ssize_t	    written = 0;
 	loff_t pos;
@@ -709,6 +716,9 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 		offset = pos & (nova_inode_blk_size(sih) - 1);
 		start_blk = pos >> sb->s_blocksize_bits;
 
+		/* previous allocate new block, get previous data block (blocknr'th block) */
+		curr_entry = nova_get_write_entry(sb, sih, blocknr);
+
 		/* don't zero-out the allocated blocks */
 		allocated = nova_new_data_blocks(sb, sih, &blocknr, start_blk,
 				 num_blocks, ALLOC_NO_INIT, ANY_CPU,
@@ -791,6 +801,14 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 
 		if (begin_tail == 0)
 			begin_tail = update.curr_entry;
+
+		// calcalate_rari value if prev_entry has already read
+		if (curr_entry->padding == (u8) 1 &&
+			nova_calculate_rari(curr_entry, &entry_data)) {
+			curr_page = (struct nova_inode_log_page *)curr_entry; // I wonder this works
+			curr_entry->padding = (u8)2; // change padding bit to 10(2)
+			do_nova_backup(curr_entry, pi, curr_page);
+		}
 	}
 
 	data_bits = blk_type_to_shift[sih->i_blk_type];
