@@ -99,6 +99,7 @@ struct nova_inode_info_header {
 	u64 alter_log_head;		/* Alternate log head pointer */
 	u64 alter_log_tail;		/* Alternate log tail pointer */
 	u8  i_blk_type;
+	u8  backup:0;
 };
 
 /* For rebuild purpose, temporarily store pi infomation */

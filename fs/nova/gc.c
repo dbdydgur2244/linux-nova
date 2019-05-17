@@ -115,6 +115,10 @@ static bool curr_page_invalid(struct super_block *sb,
 
 	NOVA_START_TIMING(check_invalid_t, check_time);
 
+	// if the nova_inode backup
+	if (sih->backup) {
+		return 0; // return valid
+	}
 	curr_page = (struct nova_inode_log_page *)
 					nova_get_block(sb, page_head);
 	rc = memcpy_mcsafe(&page_tail, &curr_page->page_tail,

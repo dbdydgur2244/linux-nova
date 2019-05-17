@@ -494,6 +494,15 @@ do_dax_mapping_read(struct file *filp, char __user *buf,
 	entryc = (metadata_csum == 0) ? entry : &entry_copy;
 
 	end_index = (isize - 1) >> PAGE_SHIFT;
+
+	// set first data block padding to 1 for meaning these file is read
+	entry = nova_get_write_entry(sb, sih, index);
+    // add for read flag
+    if (entry) {
+		entry->padding = (u8)1;
+		nova_dbgv("data block read flag: [%u]\n", entry->padding);
+	}
+
 	do {
 		unsigned long nr, left;
 		unsigned long nvmm;
@@ -510,11 +519,6 @@ do_dax_mapping_read(struct file *filp, char __user *buf,
 		}
 
 		entry = nova_get_write_entry(sb, sih, index);
-        // add for read flag
-        if (entry) {
-			entry->padding = (u8)1;
-			nova_dbgv("data block read flag: [%u]\n", entry->padding);
-		}
 		if (unlikely(entry == NULL)) {
 			nova_dbgv("Required extent not found: pgoff %lu, inode size %lld\n",
 				index, isize);
@@ -631,13 +635,14 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 	struct super_block *sb = inode->i_sb;
 	struct nova_inode *pi, inode_copy;
 	struct nova_file_write_entry *entry_data;
-	struct nova_file_write_entry curr_entry;
+	struct nova_file_write_entry first_entry;
 	struct nova_inode_log_page curr_page;
 	struct nova_inode_update update;
 	ssize_t	    written = 0;
 	loff_t pos;
 	size_t count, offset, copied;
 	unsigned long start_blk, num_blocks;
+	unsigned long back_num_blocks;
 	unsigned long total_blocks;
 	unsigned long blocknr = 0;
 	unsigned int data_bits;
@@ -654,7 +659,7 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 	int try_inplace = 0;
 	u64 epoch_id;
 	u32 time;
-
+	bool read = false;
 
 	if (len == 0)
 		return 0;
@@ -712,6 +717,15 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 	epoch_id = nova_get_epoch_id(sb);
 	update.tail = sih->log_tail;
 	update.alter_tail = sih->alter_log_tail;
+
+	// backup epoch_id, log_tail, alter_log_tail, read_flag
+	back_num_blocks = num_blocks;
+	first_entry = nova_get_write_entry(sb, sih, blocknr); // get read flag from first data block
+	if (first_entry->padding == (u8)1) {
+		read = true;
+		// first_entry->padding = (u8)0; // reset read flag to 0
+	}
+
 	while (num_blocks > 0) {
 		offset = pos & (nova_inode_blk_size(sih) - 1);
 		start_blk = pos >> sb->s_blocksize_bits;
@@ -801,14 +815,6 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 
 		if (begin_tail == 0)
 			begin_tail = update.curr_entry;
-
-		// calcalate_rari value if prev_entry has already read
-		if (curr_entry->padding == (u8) 1 &&
-			nova_calculate_rari(curr_entry, &entry_data)) {
-			curr_page = (struct nova_inode_log_page *)curr_entry; // I wonder this works
-			curr_entry->padding = (u8)2; // change padding bit to 10(2)
-			do_nova_backup(curr_entry, pi, curr_page);
-		}
 	}
 
 	data_bits = blk_type_to_shift[sih->i_blk_type];
@@ -843,6 +849,19 @@ out:
 
 	NOVA_END_TIMING(do_cow_write_t, cow_write_time);
 	NOVA_STATS_ADD(cow_write_bytes, written);
+
+	// backup
+	first_entry->padding = (u8)0; // reset read flag to 0
+	// calcalate_rari value if prev_entry has already read
+	if (ret >= 0 && read) {
+		/*
+		if (nova_calculate_rari (first_entry, entry)) {
+			curr_page = (struct nova_inode_log_page *)curr_entry; // I wonder this works
+			sih->backup = 1; // is this struct in PMEM?
+			do_nova_backup(curr_entry, pi, curr_page);
+		}
+		*/
+	}
 
 	if (try_inplace)
 		return do_nova_inplace_file_write(filp, buf, len, ppos);
