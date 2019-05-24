@@ -4,7 +4,16 @@
 #include "nova.h"
 #include "inode.h"
 
-static struct list backup_list;
+
+struct _backup_list
+{
+    struct list_head list;
+    struct nova_file_write_entry *entry;
+    struct nova_inode *pi;
+    struct nova_inode_log_page *log_page;
+};
+
+LIST_HEAD(backup_list);
 
 /*
  * declaration in nova.h
@@ -14,6 +23,7 @@ static struct list backup_list;
 bool nova_calculate_rari(struct nova_file_write_entry *prev_entry, struct nova_file_write_entry *new_entry)
 {   
     // caculate ...
+    return 1;
 }
 
 /*
@@ -41,6 +51,7 @@ bool nova_calculate_rari(struct nova_file_write_entry *prev_entry, struct nova_f
  *    (2)if not, nova_invalidate_write_entry (in log.c)
  */
 
+
 /*
  * called in do_nova_cow_file_write
  * Because access_ok and inode_integrity are already done in do_nova_cow_file_write,
@@ -48,14 +59,11 @@ bool nova_calculate_rari(struct nova_file_write_entry *prev_entry, struct nova_f
  * return backup success(0)/fail(1)
  */
 bool do_nova_backup(struct nova_file_write_entry *entry,
-                    struct nova_indoe *pi,
-                    struct nova_inode_log_page *log_page)
+                    struct nova_inode *pi)
 {
     struct backup_list_item *new_list_elem;
 
-    INIT_TIMING(backup_time);
-    NOVA_START_TIMING(do_backup_t, backup_time);
-
+    /** INIT_TIMING(backup_time); */
     // pi = nova_get_block(sb, sih->pi_addr);
     new_list_elem = kmalloc(sizeof(struct backup_list_item), GFP_ATOMIC);
     if (!new_list_elem) {
@@ -63,10 +71,8 @@ bool do_nova_backup(struct nova_file_write_entry *entry,
     }
     new_list_elem->entry    = entry;
     new_list_elem->pi       = pi;
-    new_list_elem->log_page = log_page;
-    list_push_back(&backup_list, &new_list_elem->elem);
-    nova_dbgv("%s: backup listt\n", __func__)
-
-    NOVA_END_TIMING(do_backup_t, backup_time);
+    /** new_list_elem->log_page = log_page; */
+    list_add(&new_list_elem->list, &backup_list);
+    nova_dbgv("%s: backup listt\n", __func__);
     return 0;
 }

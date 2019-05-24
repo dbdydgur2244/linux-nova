@@ -634,9 +634,8 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 	struct nova_inode_info_header *sih = &si->header;
 	struct super_block *sb = inode->i_sb;
 	struct nova_inode *pi, inode_copy;
-	struct nova_file_write_entry *entry_data;
-	struct nova_file_write_entry first_entry;
-	struct nova_inode_log_page curr_page;
+	struct nova_file_write_entry entry_data;
+	struct nova_file_write_entry *first_entry;
 	struct nova_inode_update update;
 	ssize_t	    written = 0;
 	loff_t pos;
@@ -731,7 +730,6 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
 		start_blk = pos >> sb->s_blocksize_bits;
 
 		/* previous allocate new block, get previous data block (blocknr'th block) */
-		curr_entry = nova_get_write_entry(sb, sih, blocknr);
 
 		/* don't zero-out the allocated blocks */
 		allocated = nova_new_data_blocks(sb, sih, &blocknr, start_blk,
