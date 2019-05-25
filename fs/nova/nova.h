@@ -49,7 +49,7 @@
 
 #include "nova_def.h"
 #include "stats.h"
-#include "snapshot.h"
+#include "backup.h"
 
 #define PAGE_SHIFT_2M 21
 #define PAGE_SHIFT_1G 30
@@ -494,7 +494,7 @@ struct inode_map {
 
 
 
-/* Old entry is freeable if it is appended after the latest snapshot */
+/* Old entry is freeable if it is appended after the latest backup */
 static inline int old_entry_freeable(struct super_block *sb, u64 epoch_id)
 {
 	struct nova_sb_info *sbi = NOVA_SB(sb);
@@ -505,11 +505,11 @@ static inline int old_entry_freeable(struct super_block *sb, u64 epoch_id)
 	return 0;
 }
 
-static inline int pass_mount_snapshot(struct super_block *sb, u64 epoch_id)
+static inline int pass_mount_backup(struct super_block *sb, u64 epoch_id)
 {
 	struct nova_sb_info *sbi = NOVA_SB(sb);
 
-	if (epoch_id > sbi->mount_snapshot_epoch_id)
+	if (epoch_id > sbi->mount_backup_epoch_id)
 		return 1;
 
 	return 0;
@@ -1098,27 +1098,27 @@ int nova_rebuild_dir_inode_tree(struct super_block *sb,
 	struct nova_inode_info_header *sih);
 int nova_rebuild_inode(struct super_block *sb, struct nova_inode_info *si,
 	u64 ino, u64 pi_addr, int rebuild_dir);
-int nova_restore_snapshot_table(struct super_block *sb, int just_init);
+int nova_restore_backup_table(struct super_block *sb, int just_init);
 
-/* snapshot.c */
-int nova_encounter_mount_snapshot(struct super_block *sb, void *addr,
+/* backup.c */
+int nova_encounter_mount_backup(struct super_block *sb, void *addr,
 	u8 type);
-int nova_save_snapshots(struct super_block *sb);
-int nova_destroy_snapshot_infos(struct super_block *sb);
-int nova_restore_snapshot_entry(struct super_block *sb,
-	struct nova_snapshot_info_entry *entry, u64 curr_p, int just_init);
-int nova_mount_snapshot(struct super_block *sb);
-int nova_append_data_to_snapshot(struct super_block *sb,
+int nova_save_backups(struct super_block *sb);
+int nova_destroy_backup_infos(struct super_block *sb);
+int nova_restore_backup_entry(struct super_block *sb,
+	struct nova_backup_info_entry *entry, u64 curr_p, int just_init);
+int nova_mount_backup(struct super_block *sb);
+int nova_append_data_to_backup(struct super_block *sb,
 	struct nova_file_write_entry *entry, u64 nvmm, u64 num_pages,
 	u64 delete_epoch_id);
-int nova_append_inode_to_snapshot(struct super_block *sb,
+int nova_append_inode_to_backup(struct super_block *sb,
 	struct nova_inode *pi);
-int nova_print_snapshots(struct super_block *sb, struct seq_file *seq);
-int nova_print_snapshot_lists(struct super_block *sb, struct seq_file *seq);
+int nova_print_backups(struct super_block *sb, struct seq_file *seq);
+int nova_print_backup_lists(struct super_block *sb, struct seq_file *seq);
 int nova_delete_dead_inode(struct super_block *sb, u64 ino);
-int nova_create_snapshot(struct super_block *sb);
-int nova_delete_snapshot(struct super_block *sb, u64 epoch_id);
-int nova_snapshot_init(struct super_block *sb);
+int nova_create_backup(struct super_block *sb);
+int nova_delete_backup(struct super_block *sb, u64 epoch_id);
+int nova_backup_init(struct super_block *sb);
 
 
 /* symlink.c */

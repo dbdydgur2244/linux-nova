@@ -736,7 +736,7 @@ static int nova_readdir(struct file *file, struct dir_context *ctx)
 	struct super_block *sb = inode->i_sb;
 	struct nova_sb_info *sbi = NOVA_SB(sb);
 
-	if (sbi->mount_snapshot == 0)
+	if (sbi->mount_backup == 0)
 		return nova_readdir_fast(file, ctx);
 	else
 		return nova_readdir_slow(file, ctx);

@@ -436,8 +436,8 @@ static int nova_rebuild_file_inode_tree(struct super_block *sb,
 
 		type = nova_get_entry_type(entryc);
 
-		if (sbi->mount_snapshot) {
-			if (nova_encounter_mount_snapshot(sb, addr, type))
+		if (sbi->mount_backup) {
+			if (nova_encounter_mount_backup(sb, addr, type))
 				break;
 		}
 
@@ -638,8 +638,8 @@ int nova_rebuild_dir_inode_tree(struct super_block *sb,
 
 		type = nova_get_entry_type(entryc);
 
-		if (sbi->mount_snapshot) {
-			if (nova_encounter_mount_snapshot(sb, addr, type))
+		if (sbi->mount_backup) {
+			if (nova_encounter_mount_backup(sb, addr, type))
 				break;
 		}
 
@@ -752,20 +752,20 @@ int nova_rebuild_inode(struct super_block *sb, struct nova_inode_info *si,
 }
 
 
-/******************* Snapshot log rebuild *********************/
+/******************* Backup log rebuild *********************/
 
 /* For power failure recovery, just initialize the infos */
-int nova_restore_snapshot_table(struct super_block *sb, int just_init)
+int nova_restore_backup_table(struct super_block *sb, int just_init)
 {
 	struct nova_sb_info *sbi = NOVA_SB(sb);
-	struct nova_snapshot_info_entry *entry = NULL;
+	struct nova_backup_info_entry *entry = NULL;
 	struct nova_inode *pi;
 	struct nova_inode_info_header *sih;
 	struct nova_inode_rebuild rebuild, *reb;
 	unsigned int data_bits;
 	char entry_copy[NOVA_MAX_ENTRY_LEN];
-	size_t size = sizeof(struct nova_snapshot_info_entry);
-	u64 ino = NOVA_SNAPSHOT_INO;
+	size_t size = sizeof(struct nova_backup_info_entry);
+	u64 ino = NOVA_BACKUP_INO;
 	INIT_TIMING(rebuild_time);
 	int count = 0;
 	void *addr, *entryc;
@@ -773,13 +773,13 @@ int nova_restore_snapshot_table(struct super_block *sb, int just_init)
 	u8 type;
 	int ret;
 
-	NOVA_START_TIMING(rebuild_snapshot_t, rebuild_time);
-	nova_dbg_verbose("Rebuild snapshot table\n");
+	NOVA_START_TIMING(rebuild_backup_t, rebuild_time);
+	nova_dbg_verbose("Rebuild backup table\n");
 
 	entryc = (metadata_csum == 0) ? NULL : entry_copy;
 
 	pi = nova_get_reserved_inode(sb, ino);
-	sih = &sbi->snapshot_si->header;
+	sih = &sbi->backup_si->header;
 	data_bits = blk_type_to_shift[sih->i_blk_type];
 	reb = &rebuild;
 	ret = nova_rebuild_inode_start(sb, pi, sih, reb, sih->pi_addr);
@@ -813,9 +813,9 @@ int nova_restore_snapshot_table(struct super_block *sb, int just_init)
 		type = nova_get_entry_type(entryc);
 
 		switch (type) {
-		case SNAPSHOT_INFO:
-			entry = (struct nova_snapshot_info_entry *)addr;
-			ret = nova_restore_snapshot_entry(sb, entry,
+		case BACKUP_INFO:
+			entry = (struct nova_backup_info_entry *)addr;
+			ret = nova_restore_backup_entry(sb, entry,
 						curr_p, just_init);
 			if (ret) {
 				nova_err(sb, "Restore entry %llu failed\n",
@@ -840,9 +840,9 @@ int nova_restore_snapshot_table(struct super_block *sb, int just_init)
 
 out:
 //	nova_print_inode_log_page(sb, inode);
-	NOVA_END_TIMING(rebuild_snapshot_t, rebuild_time);
+	NOVA_END_TIMING(rebuild_backup_t, rebuild_time);
 
-	nova_dbg("Recovered %d snapshots, latest epoch ID %llu\n",
+	nova_dbg("Recovered %d backups, latest epoch ID %llu\n",
 			count, sbi->s_epoch_id);
 
 	return ret;

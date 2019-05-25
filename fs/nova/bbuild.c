@@ -838,7 +838,7 @@ static unsigned int nova_check_old_entry(struct super_block *sb,
 
 	old_nvmm = get_nvmm(sb, sih, entryc, pgoff);
 
-	ret = nova_append_data_to_snapshot(sb, entryc, old_nvmm,
+	ret = nova_append_data_to_backup(sb, entryc, old_nvmm,
 				num_free, epoch_id);
 
 	if (ret != 0)
@@ -1320,7 +1320,7 @@ static int failure_thread_func(void *data)
 			/* FIXME: Check inode checksum */
 			if (fake_pi.i_mode && fake_pi.deleted == 0) {
 				if (fake_pi.valid == 0) {
-					ret = nova_append_inode_to_snapshot(sb,
+					ret = nova_append_inode_to_backup(sb,
 									pi);
 					if (ret != 0) {
 						/* Deleteable */
@@ -1458,9 +1458,9 @@ int nova_failure_recovery(struct super_block *sb)
 		set_bm(pair->journal_head >> PAGE_SHIFT, global_bm[i], BM_4K);
 	}
 
-	i = NOVA_SNAPSHOT_INO % sbi->cpus;
-	pi = nova_get_inode_by_ino(sb, NOVA_SNAPSHOT_INO);
-	/* Set snapshot info log pages */
+    i = NOVA_BACKUP_INO % sbi->cpus;
+	pi = nova_get_inode_by_ino(sb, NOVA_BACKUP_INO);
+	/* Set backup info log pages */
 	nova_traverse_dir_inode_log(sb, pi, global_bm[i]);
 
 	PERSISTENT_BARRIER();
@@ -1510,11 +1510,11 @@ static bool nova_try_normal_recovery(struct super_block *sb)
 		return false;
 	}
 
-	if (sbi->mount_snapshot == 0) {
-		ret = nova_restore_snapshot_table(sb, 0);
+	if (sbi->mount_backup == 0) {
+		ret = nova_restore_backup_table(sb, 0);
 		if (ret) {
-			nova_err(sb, "Restore snapshot table failed, fall back to failure recovery\n");
-			nova_destroy_snapshot_infos(sb);
+			nova_err(sb, "Restore backup table failed, fall back to failure recovery\n");
+			nova_destroy_backup_infos(sb);
 			return false;
 		}
 	}
@@ -1524,7 +1524,7 @@ static bool nova_try_normal_recovery(struct super_block *sb)
 
 /*
  * Recovery routine has three tasks:
- * 1. Restore snapshot table;
+ * 1. Restore backup table;
  * 2. Restore inuse inode list;
  * 3. Restore the NVMM allocator.
  */
@@ -1559,12 +1559,12 @@ int nova_recovery(struct super_block *sb)
 		if (ret)
 			goto out;
 
-		if (sbi->mount_snapshot == 0) {
-			/* Initialize the snapshot infos */
-			ret = nova_restore_snapshot_table(sb, 1);
+		if (sbi->mount_backup == 0) {
+			/* Initialize the backup infos */
+			ret = nova_restore_backup_table(sb, 1);
 			if (ret) {
-				nova_dbg("Initialize snapshot infos failed\n");
-				nova_destroy_snapshot_infos(sb);
+				nova_dbg("Initialize backup infos failed\n");
+				nova_destroy_backup_infos(sb);
 				goto out;
 			}
 		}

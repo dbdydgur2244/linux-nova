@@ -84,7 +84,7 @@ struct nova_range_node *nova_alloc_inode_node(struct super_block *sb);
 struct nova_range_node *nova_alloc_dir_node(struct super_block *sb);
 struct vma_item *nova_alloc_vma_item(struct super_block *sb);
 void nova_free_range_node(struct nova_range_node *node);
-void nova_free_snapshot_info(struct snapshot_info *info);
+void nova_free_backup_info(struct backup_info *info);
 void nova_free_blocknode(struct nova_range_node *bnode);
 void nova_free_inode_node(struct nova_range_node *bnode);
 void nova_free_dir_node(struct nova_range_node *bnode);

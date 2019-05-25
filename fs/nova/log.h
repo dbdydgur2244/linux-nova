@@ -24,7 +24,7 @@
 struct nova_inode_page_tail {
 	__le32	invalid_entries;
 	__le32	num_entries;
-	__le64	epoch_id;	/* For snapshot list page */
+	__le64	epoch_id;	/* For backup list page */
 	__le64	alter_page;	/* Corresponding page in the other log */
 	__le64	next_page;
 } __attribute((__packed__));
@@ -43,7 +43,7 @@ enum nova_entry_type {
 	SET_ATTR,
 	LINK_CHANGE,
 	MMAP_WRITE,
-	SNAPSHOT_INFO,
+	BACKUP_INFO,
 	NEXT_PAGE,
 };
 
@@ -180,10 +180,10 @@ struct nova_mmap_entry {
 #define MMENTRY(entry)	((struct nova_mmap_entry *) entry)
 
 /*
- * Log entry for the creation of a snapshot.  Only occurs in the log of the
- * dedicated snapshot inode.
+ * Log entry for the creation of a backup.  Only occurs in the log of the
+ * dedicated backup inode.
  */
-struct nova_snapshot_info_entry {
+struct nova_backup_info_entry {
 	u8	type;
 	u8	deleted;
 	u8	paddings[6];
@@ -194,7 +194,7 @@ struct nova_snapshot_info_entry {
 	__le32	csum;
 } __attribute((__packed__));
 
-#define SNENTRY(entry)	((struct nova_snapshot_info_entry *) entry)
+#define SNENTRY(entry)	((struct nova_backup_info_entry *) entry)
 
 
 /*
@@ -254,8 +254,8 @@ static inline size_t nova_get_log_entry_size(struct super_block *sb,
 	case MMAP_WRITE:
 		size = sizeof(struct nova_mmap_entry);
 		break;
-	case SNAPSHOT_INFO:
-		size = sizeof(struct nova_snapshot_info_entry);
+	case BACKUP_INFO:
+		size = sizeof(struct nova_backup_info_entry);
 		break;
 	default:
 		break;
@@ -312,9 +312,9 @@ int nova_append_mmap_entry(struct super_block *sb, struct nova_inode *pi,
 int nova_append_file_write_entry(struct super_block *sb, struct nova_inode *pi,
 	struct inode *inode, struct nova_file_write_entry *data,
 	struct nova_inode_update *update);
-int nova_append_snapshot_info_entry(struct super_block *sb,
+int nova_append_backup_info_entry(struct super_block *sb,
 	struct nova_inode *pi, struct nova_inode_info *si,
-	struct snapshot_info *info, struct nova_snapshot_info_entry *data,
+	struct backup_info *info, struct nova_backup_info_entry *data,
 	struct nova_inode_update *update);
 int nova_assign_write_entry(struct super_block *sb,
 	struct nova_inode_info_header *sih,

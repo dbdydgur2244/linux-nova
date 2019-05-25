@@ -931,9 +931,9 @@ void nova_evict_inode(struct inode *inode)
 		nova_print_inode_log(sb, inode);
 	}
 
-	/* Check if this inode exists in at least one snapshot. */
+	/* Check if this inode exists in at least one backup. */
 	if (pi && pi->valid == 0) {
-		ret = nova_append_inode_to_snapshot(sb, pi);
+		ret = nova_append_inode_to_backup(sb, pi);
 		if (ret == 0)
 			goto out;
 	}
@@ -1198,7 +1198,7 @@ void nova_dirty_inode(struct inode *inode, int flags)
 	struct nova_inode_info_header *sih = &si->header;
 	struct nova_inode *pi, inode_copy;
 
-	if (sbi->mount_snapshot)
+	if (sbi->mount_backup)
 		return;
 
 	pi = nova_get_block(sb, sih->pi_addr);

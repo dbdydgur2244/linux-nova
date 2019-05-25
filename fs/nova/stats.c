@@ -87,7 +87,7 @@ const char *Timingstring[TIMING_NUM] = {
 	"append_mmap_entry",
 	"append_link_change",
 	"append_setattr",
-	"append_snapshot_info",
+	"append_backup_info",
 	"inplace_update_entry",
 
 	/* Tree */
@@ -150,15 +150,15 @@ const char *Timingstring[TIMING_NUM] = {
 	"=================== Rebuild ====================",
 	"rebuild_dir",
 	"rebuild_file",
-	"rebuild_snapshot_table",
+	"rebuild_backup_table",
 
-	/* Snapshot */
-	"=================== Snapshot ===================",
-	"create_snapshot",
-	"init_snapshot_info",
-	"delete_snapshot",
-	"append_snapshot_filedata",
-	"append_snapshot_inode",
+	/* Backup */
+	"=================== Backup ===================",
+	"create_backup",
+	"init_backup_info",
+	"delete_backup",
+	"append_backup_filedata",
+	"append_backup_inode",
 };
 
 u64 Timingstats[TIMING_NUM];
@@ -408,10 +408,11 @@ static inline void nova_print_mmap_entry(struct super_block *sb,
 			entry->pgoff, entry->num_pages);
 }
 
-static inline void nova_print_snapshot_info_entry(struct super_block *sb,
-	u64 curr, struct nova_snapshot_info_entry *entry)
+static inline void nova_print_backup_info_entry(struct super_block *sb,
+	                                              u64 curr, 
+                                                  struct nova_backup_info_entry *entry)
 {
-	nova_dbg("snapshot info entry @ 0x%llx: epoch %llu, deleted %u, timestamp %llu\n",
+	nova_dbg("backup info entry @ 0x%llx: epoch %llu, deleted %u, timestamp %llu\n",
 			curr, entry->epoch_id, entry->deleted,
 			entry->timestamp);
 }
@@ -451,9 +452,9 @@ u64 nova_print_log_entry(struct super_block *sb, u64 curr)
 		nova_print_mmap_entry(sb, curr, addr);
 		curr += sizeof(struct nova_mmap_entry);
 		break;
-	case SNAPSHOT_INFO:
-		nova_print_snapshot_info_entry(sb, curr, addr);
-		curr += sizeof(struct nova_snapshot_info_entry);
+	case BACKUP_INFO:
+		nova_print_backup_info_entry(sb, curr, addr);
+		curr += sizeof(struct nova_backup_info_entry);
 		break;
 	case FILE_WRITE:
 		nova_print_file_write_entry(sb, curr, addr);

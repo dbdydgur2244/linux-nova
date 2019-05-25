@@ -75,7 +75,7 @@ static struct super_operations nova_sops;
 static const struct export_operations nova_export_ops;
 static struct kmem_cache *nova_inode_cachep;
 static struct kmem_cache *nova_range_node_cachep;
-static struct kmem_cache *nova_snapshot_info_cachep;
+static struct kmem_cache *nova_backup_info_cachep;
 
 /* FIXME: should the following variable be one per NOVA instance? */
 unsigned int nova_dbgmask;
@@ -178,7 +178,7 @@ static loff_t nova_max_size(int bits)
 }
 
 enum {
-	Opt_bpi, Opt_init, Opt_snapshot, Opt_mode, Opt_uid,
+	Opt_bpi, Opt_init, Opt_backup, Opt_mode, Opt_uid,
 	Opt_gid, Opt_dax, Opt_data_cow, Opt_wprotect,
 	Opt_err_cont, Opt_err_panic, Opt_err_ro,
 	Opt_dbgmask, Opt_err
@@ -187,7 +187,7 @@ enum {
 static const match_table_t tokens = {
 	{ Opt_bpi,	     "bpi=%u"		  },
 	{ Opt_init,	     "init"		  },
-	{ Opt_snapshot,	     "snapshot=%u"	  },
+	{ Opt_backup,    "backup=%u"	  },
 	{ Opt_mode,	     "mode=%o"		  },
 	{ Opt_uid,	     "uid=%u"		  },
 	{ Opt_gid,	     "gid=%u"		  },
@@ -250,11 +250,11 @@ static int nova_parse_options(char *options, struct nova_sb_info *sbi,
 				goto bad_opt;
 			set_opt(sbi->s_mount_opt, FORMAT);
 			break;
-		case Opt_snapshot:
+		case Opt_backup:
 			if (match_int(&args[0], &option))
 				goto bad_val;
-			sbi->mount_snapshot = 1;
-			sbi->mount_snapshot_epoch_id = option;
+			sbi->mount_backup = 1;
+			sbi->mount_backup_epoch_id = option;
 			break;
 		case Opt_err_panic:
 			clear_opt(sbi->s_mount_opt, ERRORS_CONT);
@@ -422,12 +422,12 @@ static struct nova_inode *nova_init(struct super_block *sb,
 	pi->nova_ino = NOVA_BLOCKNODE_INO;
 	nova_flush_buffer(pi, CACHELINE_SIZE, 1);
 
-	pi = nova_get_inode_by_ino(sb, NOVA_SNAPSHOT_INO);
-	pi->nova_ino = NOVA_SNAPSHOT_INO;
+	pi = nova_get_inode_by_ino(sb, NOVA_BACKUP_INO);
+	pi->nova_ino = NOVA_BACKUP_INO;
 	nova_flush_buffer(pi, CACHELINE_SIZE, 1);
 
 	memset(&update, 0, sizeof(struct nova_inode_update));
-	nova_update_inode(sb, &sbi->snapshot_si->vfs_inode, pi, &update, 1);
+	nova_update_inode(sb, &sbi->backup_si->vfs_inode, pi, &update, 1);
 
 	nova_memlock_reserved(sb, super);
 
@@ -495,7 +495,7 @@ static inline void set_default_opts(struct nova_sb_info *sbi)
 	sbi->cpus = num_online_cpus();
 	nova_info("%d cpus online\n", sbi->cpus);
 	sbi->map_id = 0;
-	sbi->snapshot_si = NULL;
+	sbi->backup_si = NULL;
 }
 
 static void nova_root_check(struct super_block *sb, struct nova_inode *root_pi)
@@ -688,8 +688,8 @@ static int nova_fill_super(struct super_block *sb, void *data, int silent)
 		goto out;
 	}
 
-	sbi->snapshot_si = kmem_cache_alloc(nova_inode_cachep, GFP_NOFS);
-	nova_snapshot_init(sb);
+	sbi->backup_si = kmem_cache_alloc(nova_inode_cachep, GFP_NOFS);
+	nova_backup_init(sb);
 
 	retval = nova_parse_options(data, sbi, 0);
 	if (retval) {
@@ -698,9 +698,9 @@ static int nova_fill_super(struct super_block *sb, void *data, int silent)
 		goto out;
 	}
 
-	if (sbi->mount_snapshot) {
+	if (sbi->mount_backup) {
 		sb->s_flags |= MS_RDONLY;
-		nova_info("Snapshot: mount NOVA read-only\n");
+		nova_info("backup: mount NOVA read-only\n");
 	}
 
 	if (nova_alloc_block_free_lists(sb)) {
@@ -741,10 +741,10 @@ static int nova_fill_super(struct super_block *sb, void *data, int silent)
 		goto out;
 	}
 
-	if (sbi->mount_snapshot) {
-		retval = nova_mount_snapshot(sb);
+	if (sbi->mount_backup) {
+		retval = nova_mount_backup(sb);
 		if (retval) {
-			nova_err(sb, "Mount snapshot failed\n");
+			nova_err(sb, "Mount backup failed\n");
 			goto out;
 		}
 	}
@@ -802,9 +802,9 @@ setup_sb:
 	return retval;
 
 out:
-	if (sbi->snapshot_si) {
-		kmem_cache_free(nova_inode_cachep, sbi->snapshot_si);
-		sbi->snapshot_si = NULL;
+	if (sbi->backup_si) {
+		kmem_cache_free(nova_inode_cachep, sbi->backup_si);
+		sbi->backup_si = NULL;
 	}
 
 	kfree(sbi->zeroed_page);
@@ -922,8 +922,8 @@ static void nova_put_super(struct super_block *sb)
 	/* It's unmount time, so unmap the nova memory */
 //	nova_print_free_lists(sb);
 	if (sbi->virt_addr) {
-		nova_save_snapshots(sb);
-		kmem_cache_free(nova_inode_cachep, sbi->snapshot_si);
+		nova_save_backups(sb);
+		kmem_cache_free(nova_inode_cachep, sbi->backup_si);
 		nova_save_inode_list_to_log(sb);
 		/* Save everything before blocknode mapping! */
 		nova_save_blocknode_mappings_to_log(sb);
@@ -975,18 +975,18 @@ void nova_free_vma_item(struct super_block *sb,
 	nova_free_range_node((struct nova_range_node *)item);
 }
 
-struct snapshot_info *nova_alloc_snapshot_info(struct super_block *sb)
+struct backup_info *nova_alloc_backup_info(struct super_block *sb)
 {
-	struct snapshot_info *p;
+	struct backup_info *p;
 
-	p = (struct snapshot_info *)
-		kmem_cache_alloc(nova_snapshot_info_cachep, GFP_NOFS);
+	p = (struct backup_info *)
+		kmem_cache_alloc(nova_backup_info_cachep, GFP_NOFS);
 	return p;
 }
 
-void nova_free_snapshot_info(struct snapshot_info *info)
+void nova_free_backup_info(struct backup_info *info)
 {
-	kmem_cache_free(nova_snapshot_info_cachep, info);
+	kmem_cache_free(nova_backup_info_cachep, info);
 }
 
 struct nova_range_node *nova_alloc_range_node_atomic(struct super_block *sb)
@@ -1071,14 +1071,14 @@ static int __init init_rangenode_cache(void)
 	return 0;
 }
 
-static int __init init_snapshot_info_cache(void)
+static int __init init_backup_info_cache(void)
 {
-	nova_snapshot_info_cachep = kmem_cache_create(
-					"nova_snapshot_info_cache",
-					sizeof(struct snapshot_info),
+	nova_backup_info_cachep = kmem_cache_create(
+					"nova_backup_info_cache",
+					sizeof(struct backup_info),
 					0, (SLAB_RECLAIM_ACCOUNT |
 					SLAB_MEM_SPREAD), NULL);
-	if (nova_snapshot_info_cachep == NULL)
+	if (nova_backup_info_cachep == NULL)
 		return -ENOMEM;
 	return 0;
 }
@@ -1109,9 +1109,9 @@ static void destroy_rangenode_cache(void)
 	kmem_cache_destroy(nova_range_node_cachep);
 }
 
-static void destroy_snapshot_info_cache(void)
+static void destroy_backup_info_cache(void)
 {
-	kmem_cache_destroy(nova_snapshot_info_cachep);
+	kmem_cache_destroy(nova_backup_info_cachep);
 }
 
 /*
@@ -1220,7 +1220,7 @@ static int __init init_nova_fs(void)
 	if (rc)
 		goto out1;
 
-	rc = init_snapshot_info_cache();
+	rc = init_backup_info_cache();
 	if (rc)
 		goto out2;
 
@@ -1232,7 +1232,7 @@ static int __init init_nova_fs(void)
 	return 0;
 
 out3:
-	destroy_snapshot_info_cache();
+	destroy_backup_info_cache();
 out2:
 	destroy_inodecache();
 out1:
@@ -1244,7 +1244,7 @@ static void __exit exit_nova_fs(void)
 {
 	unregister_filesystem(&nova_fs_type);
 	remove_proc_entry(proc_dirname, NULL);
-	destroy_snapshot_info_cache();
+	destroy_backup_info_cache();
 	destroy_inodecache();
 	destroy_rangenode_cache();
 }
