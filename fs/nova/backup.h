@@ -1,6 +1,7 @@
 #ifndef __BACKUP_H
 #define __BACKUP_H
 
+#include <linux/mutex.h>
 
 /* 
  * brining from snapshot_list
@@ -23,7 +24,7 @@ struct backup_info
     struct backup_list *lists;  // Per-CPU backup list 
 };
 
-enum nova_snapshot_entry_type
+enum nova_backup_entry_type
 {
     SS_INODE = 1,
     SS_FILE_WRITE,
@@ -40,7 +41,7 @@ struct backup_inode_entry
     u64 padding64;
     u64 nova_ino; // inode number that was deleted
     u64 delete_epoch_id;
-} __attributed((__packed));
+} __attributed((__packed__));
 
 /*
  *  bringing from snapshot_file_write_entry in snapshot.h

@@ -103,8 +103,7 @@ nova_insert_backup_info(struct super_block *sb,
  * Reuse the inode log page structure
  */
 static inline void 
-nova_set_link_page_epoch_id(struct super_block *sb, 
-                            struct nova_inode_log_page *curr_page,
+nova_set_link_page_epoch_id(struct nova_inode_log_page *curr_page,
                             u64 epoch_id)
 {
     curr_page->page_tail.epoch_id = epoch_id;
@@ -115,8 +114,7 @@ nova_set_link_page_epoch_id(struct super_block *sb,
  * Reuse the inode log page structure 
  */
 static inline void 
-nova_set_next_link_page_address(struct super_block *sb,
-                                struct nova_inode_log_page *curr_page, 
+nova_set_next_link_page_address(struct nova_inode_log_page *curr_page, 
                                 u64 next_page)
 {
     curr_page->page_tail.next_page = next_page;
@@ -172,7 +170,7 @@ nova_delete_backup_list_entries(struct super_block *sb,
                 w_entry = (struct backup_file_write_entry *)addr;
                 if (w_entry->deleted == 0)
                     nova_free_data_blocks(sb, &sih, w_entry->nvmm,
-                            w_entry->num_pages);
+                                          w_entry->num_pages);
                 curr_p += sizeof(struct backup_file_write_entry);
                 continue;
             default:
@@ -338,8 +336,8 @@ nova_initialize_backup_info_pages(struct super_block *sb,
 			return -ENOMEM;
 		}
 
-		nova_set_link_page_epoch_id(sb, (void *)new_page, epoch_id);
-		nova_set_next_link_page_address(sb, (void *)new_page, 0);
+		nova_set_link_page_epoch_id((void *)new_page, epoch_id);
+		nova_set_next_link_page_address((void *)new_page, 0);
 		list->tail = list->head = new_page;
 		list->num_pages = 1;
 	}
@@ -448,7 +446,7 @@ retry:
 		/* Link prev block and newly allocated page */
 		curr_block = BLOCK_OFF(curr_p);
 		curr_page = (struct nova_inode_log_page *)curr_block;
-		nova_set_next_link_page_address(sb, curr_page, new_page);
+		nova_set_next_link_page_address(curr_page, new_page);
 		list->num_pages++;
 	}
 
@@ -464,10 +462,9 @@ retry:
 						__func__);
 				return -ENOMEM;
 			}
-			nova_set_link_page_epoch_id(sb, (void *)new_page,
+			nova_set_link_page_epoch_id((void *)new_page,
 						info->epoch_id);
-			nova_set_next_link_page_address(sb,
-						(void *)new_page, 0);
+			nova_set_next_link_page_address((void *)new_page, 0);
 			goto retry;
 		}
 	}
@@ -728,14 +725,14 @@ nova_allocate_backup_list_pages(struct super_block *sb,
 			goto fail;
 		}
 
-		nova_set_link_page_epoch_id(sb, (void *)new_page, epoch_id);
-		nova_set_next_link_page_address(sb, (void *)new_page, 0);
+		nova_set_link_page_epoch_id((void *)new_page, epoch_id);
+		nova_set_next_link_page_address((void *)new_page, 0);
 
 		if (i == 0)
 			list->head = new_page;
 
 		if (prev_page)
-			nova_set_next_link_page_address(sb, (void *)prev_page,
+			nova_set_next_link_page_address((void *)prev_page,
 							new_page);
 		prev_page = new_page;
 	}
@@ -951,7 +948,7 @@ nova_append_backup_info_log(struct super_block *sb,
 
 	update.tail = update.alter_tail = 0;
 	ret = nova_append_backup_info_entry(sb, pi, si, info,
-					&entry_info, &update);
+										&entry_info, &update);
 	if (ret) {
 		nova_dbg("%s: append backup info entry failure\n", __func__);
 		return ret;
@@ -1074,7 +1071,7 @@ static int nova_link_to_next_backup(struct super_block *sb,
 		/* Link the prev lists to the head of next lists */
 		curr_block = BLOCK_OFF(prev_list->tail);
 		curr_page = (struct nova_inode_log_page *)curr_block;
-		nova_set_next_link_page_address(sb, curr_page, next_list->head);
+		nova_set_next_link_page_address(curr_page, next_list->head);
 
 		next_list->head = prev_list->head;
 		next_list->num_pages += prev_list->num_pages;
