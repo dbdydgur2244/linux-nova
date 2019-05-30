@@ -25,129 +25,129 @@
 #include "inode.h"
 
 int nova_block_symlink(struct super_block *sb, struct nova_inode *pi,
-	struct inode *inode, const char *symname, int len, u64 epoch_id)
+    struct inode *inode, const char *symname, int len, u64 epoch_id)
 {
-	struct nova_file_write_entry entry_data;
-	struct nova_inode_info *si = NOVA_I(inode);
-	struct nova_inode_info_header *sih = &si->header;
-	struct nova_inode_update update;
-	unsigned long name_blocknr = 0;
-	int allocated;
-	u64 block;
-	char *blockp;
-	u32 time;
-	int ret;
+    struct nova_file_write_entry entry_data;
+    struct nova_inode_info *si = NOVA_I(inode);
+    struct nova_inode_info_header *sih = &si->header;
+    struct nova_inode_update update;
+    unsigned long name_blocknr = 0;
+    int allocated;
+    u64 block;
+    char *blockp;
+    u32 time;
+    int ret;
 
-	update.tail = sih->log_tail;
-	update.alter_tail = sih->alter_log_tail;
+    update.tail = sih->log_tail;
+    update.alter_tail = sih->alter_log_tail;
 
-	allocated = nova_new_data_blocks(sb, sih, &name_blocknr, 0, 1,
-				 ALLOC_INIT_ZERO, ANY_CPU, ALLOC_FROM_TAIL);
-	if (allocated != 1 || name_blocknr == 0) {
-		ret = allocated;
-		return ret;
-	}
+    allocated = nova_new_data_blocks(sb, sih, &name_blocknr, 0, 1,
+                 ALLOC_INIT_ZERO, ANY_CPU, ALLOC_FROM_TAIL);
+    if (allocated != 1 || name_blocknr == 0) {
+        ret = allocated;
+        return ret;
+    }
 
-	/* First copy name to name block */
-	block = nova_get_block_off(sb, name_blocknr, NOVA_BLOCK_TYPE_4K);
-	blockp = (char *)nova_get_block(sb, block);
+    /* First copy name to name block */
+    block = nova_get_block_off(sb, name_blocknr, NOVA_BLOCK_TYPE_4K);
+    blockp = (char *)nova_get_block(sb, block);
 
-	nova_memunlock_block(sb, blockp);
-	memcpy_to_pmem_nocache(blockp, symname, len);
-	blockp[len] = '\0';
-	nova_memlock_block(sb, blockp);
+    nova_memunlock_block(sb, blockp);
+    memcpy_to_pmem_nocache(blockp, symname, len);
+    blockp[len] = '\0';
+    nova_memlock_block(sb, blockp);
 
-	/* Apply a write entry to the log page */
-	time = current_time(inode).tv_sec;
-	nova_init_file_write_entry(sb, sih, &entry_data, epoch_id, 0, 1,
-					name_blocknr, time, len + 1);
+    /* Apply a write entry to the log page */
+    time = current_time(inode).tv_sec;
+    nova_init_file_write_entry(sb, sih, &entry_data, epoch_id, 0, 1,
+                    name_blocknr, time, len + 1);
 
-	ret = nova_append_file_write_entry(sb, pi, inode, &entry_data, &update);
-	if (ret) {
-		nova_dbg("%s: append file write entry failed %d\n",
-					__func__, ret);
-		nova_free_data_blocks(sb, sih, name_blocknr, 1);
-		return ret;
-	}
+    ret = nova_append_file_write_entry(sb, pi, inode, &entry_data, &update);
+    if (ret) {
+        nova_dbg("%s: append file write entry failed %d\n",
+                    __func__, ret);
+        nova_free_data_blocks(sb, sih, name_blocknr, 1);
+        return ret;
+    }
 
-	nova_memunlock_inode(sb, pi);
-	nova_update_inode(sb, inode, pi, &update, 1);
-	nova_memlock_inode(sb, pi);
-	sih->trans_id++;
+    nova_memunlock_inode(sb, pi);
+    nova_update_inode(sb, inode, pi, &update, 1);
+    nova_memlock_inode(sb, pi);
+    sih->trans_id++;
 
-	return 0;
+    return 0;
 }
 
 /* FIXME: Temporary workaround */
 static int nova_readlink_copy(char __user *buffer, int buflen, const char *link)
 {
-	int len = PTR_ERR(link);
+    int len = PTR_ERR(link);
 
-	if (IS_ERR(link))
-		goto out;
+    if (IS_ERR(link))
+        goto out;
 
-	len = strlen(link);
-	if (len > (unsigned int) buflen)
-		len = buflen;
-	if (copy_to_user(buffer, link, len))
-		len = -EFAULT;
+    len = strlen(link);
+    if (len > (unsigned int) buflen)
+        len = buflen;
+    if (copy_to_user(buffer, link, len))
+        len = -EFAULT;
 out:
-	return len;
+    return len;
 }
 
 static int nova_readlink(struct dentry *dentry, char __user *buffer, int buflen)
 {
-	struct nova_file_write_entry *entry;
-	struct nova_file_write_entry *entryc, entry_copy;
-	struct inode *inode = dentry->d_inode;
-	struct super_block *sb = inode->i_sb;
-	struct nova_inode_info *si = NOVA_I(inode);
-	struct nova_inode_info_header *sih = &si->header;
-	char *blockp;
+    struct nova_file_write_entry *entry;
+    struct nova_file_write_entry *entryc, entry_copy;
+    struct inode *inode = dentry->d_inode;
+    struct super_block *sb = inode->i_sb;
+    struct nova_inode_info *si = NOVA_I(inode);
+    struct nova_inode_info_header *sih = &si->header;
+    char *blockp;
 
-	entry = (struct nova_file_write_entry *)nova_get_block(sb,
-							sih->log_head);
+    entry = (struct nova_file_write_entry *)nova_get_block(sb,
+                            sih->log_head);
 
-	if (metadata_csum == 0)
-		entryc = entry;
-	else {
-		entryc = &entry_copy;
-		if (!nova_verify_entry_csum(sb, entry, entryc))
-			return -EIO;
-	}
+    if (metadata_csum == 0)
+        entryc = entry;
+    else {
+        entryc = &entry_copy;
+        if (!nova_verify_entry_csum(sb, entry, entryc))
+            return -EIO;
+    }
 
-	blockp = (char *)nova_get_block(sb, BLOCK_OFF(entryc->block));
+    blockp = (char *)nova_get_block(sb, BLOCK_OFF(entryc->block));
 
-	return nova_readlink_copy(buffer, buflen, blockp);
+    return nova_readlink_copy(buffer, buflen, blockp);
 }
 
 static const char *nova_get_link(struct dentry *dentry, struct inode *inode,
-	struct delayed_call *done)
+    struct delayed_call *done)
 {
-	struct nova_file_write_entry *entry;
-	struct nova_file_write_entry *entryc, entry_copy;
-	struct super_block *sb = inode->i_sb;
-	struct nova_inode_info *si = NOVA_I(inode);
-	struct nova_inode_info_header *sih = &si->header;
-	char *blockp;
+    struct nova_file_write_entry *entry;
+    struct nova_file_write_entry *entryc, entry_copy;
+    struct super_block *sb = inode->i_sb;
+    struct nova_inode_info *si = NOVA_I(inode);
+    struct nova_inode_info_header *sih = &si->header;
+    char *blockp;
 
-	entry = (struct nova_file_write_entry *)nova_get_block(sb,
-							sih->log_head);
-	if (metadata_csum == 0)
-		entryc = entry;
-	else {
-		entryc = &entry_copy;
-		if (!nova_verify_entry_csum(sb, entry, entryc))
-			return NULL;
-	}
+    entry = (struct nova_file_write_entry *)nova_get_block(sb,
+                            sih->log_head);
+    if (metadata_csum == 0)
+        entryc = entry;
+    else {
+        entryc = &entry_copy;
+        if (!nova_verify_entry_csum(sb, entry, entryc))
+            return NULL;
+    }
 
-	blockp = (char *)nova_get_block(sb, BLOCK_OFF(entryc->block));
+    blockp = (char *)nova_get_block(sb, BLOCK_OFF(entryc->block));
 
-	return blockp;
+    return blockp;
 }
 
 const struct inode_operations nova_symlink_inode_operations = {
-	.readlink	= nova_readlink,
-	.get_link	= nova_get_link,
-	.setattr	= nova_notify_change,
+    .readlink	= nova_readlink,
+    .get_link	= nova_get_link,
+    .setattr	= nova_notify_change,
 };

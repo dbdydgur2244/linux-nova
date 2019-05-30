@@ -18,8 +18,8 @@ struct backup_list
 
 struct backup_info 
 {
-    u64 epoch_id;
-    u64 timestamp;
+    u64 epoch_id; // inode_entry number
+    u64 timestamp; // the recent time stamp
     unsigned long backup_entry; // PMEM pointer to the struct
     struct backup_list *lists;  // Per-CPU backup list 
 };
@@ -38,7 +38,7 @@ struct backup_inode_entry
     u8 type;
     u8 deleted;
     u8 padding[6];
-    u64 padding64;
+    u64 timestamp;
     u64 nova_ino; // inode number that was deleted
     u64 delete_epoch_id;
 } __attributed((__packed__));

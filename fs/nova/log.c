@@ -1248,10 +1248,10 @@ static u64 nova_extend_inode_log(struct super_block *sb, struct nova_inode *pi,
 		nova_memlock_inode(sb, pi);
 	}
 
-
+	/*
 	nova_inode_log_fast_gc(sb, pi, sih, curr_p,
 			       new_block, alter_new_block, allocated, 0);
-
+	*/
 //	nova_dbg("After append log pages:\n");
 //	nova_print_inode_log_page(sb, inode);
 	/* Atomic switch to new log */
@@ -1317,6 +1317,10 @@ u64 nova_get_append_head(struct super_block *sb, struct nova_inode *pi,
 		if (log_id != MAIN_LOG)
 			return 0;
 
+
+		// could set off this flag?
+		// set off gc for backup
+		// thorough_gc = 1;
 		if (thorough_gc == 0) {
 			curr_p = nova_extend_inode_log(sb, pi, sih, curr_p);
 		} else {

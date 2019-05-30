@@ -1104,6 +1104,7 @@ int nova_restore_backup_table(struct super_block *sb, int just_init);
 int nova_encounter_mount_backup(struct super_block *sb, void *addr,
 	u8 type);
 int nova_save_backups(struct super_block *sb);
+int nova_save_backup(struct super_block *sb, unsigned long blocknr)
 int nova_destroy_backup_infos(struct super_block *sb);
 int nova_restore_backup_entry(struct super_block *sb,
 	struct nova_backup_info_entry *entry, u64 curr_p, int just_init);

@@ -83,50 +83,50 @@
 
 static inline bool arch_has_clwb(void)
 {
-	return static_cpu_has(X86_FEATURE_CLWB);
+    return static_cpu_has(X86_FEATURE_CLWB);
 }
 
 extern int support_clwb;
 
 #define _mm_clflush(addr)\
-	asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
+    asm volatile("clflush %0" : "+m" (*(volatile char *)(addr)))
 #define _mm_clflushopt(addr)\
-	asm volatile(".byte 0x66; clflush %0" : "+m" \
-		     (*(volatile char *)(addr)))
+    asm volatile(".byte 0x66; clflush %0" : "+m" \
+             (*(volatile char *)(addr)))
 #define _mm_clwb(addr)\
-	asm volatile(".byte 0x66; xsaveopt %0" : "+m" \
-		     (*(volatile char *)(addr)))
+    asm volatile(".byte 0x66; xsaveopt %0" : "+m" \
+             (*(volatile char *)(addr)))
 
 /* Provides ordering from all previous clflush too */
 static inline void PERSISTENT_MARK(void)
 {
-	/* TODO: Fix me. */
+    /* TODO: Fix me. */
 }
 
 static inline void PERSISTENT_BARRIER(void)
 {
-	asm volatile ("sfence\n" : : );
+    asm volatile ("sfence\n" : : );
 }
 
 static inline void nova_flush_buffer(void *buf, uint32_t len, bool fence)
 {
-	uint32_t i;
+    uint32_t i;
 
-	len = len + ((unsigned long)(buf) & (CACHELINE_SIZE - 1));
-	if (support_clwb) {
-		for (i = 0; i < len; i += CACHELINE_SIZE)
-			_mm_clwb(buf + i);
-	} else {
-		for (i = 0; i < len; i += CACHELINE_SIZE)
-			_mm_clflush(buf + i);
-	}
-	/* Do a fence only if asked. We often don't need to do a fence
-	 * immediately after clflush because even if we get context switched
-	 * between clflush and subsequent fence, the context switch operation
-	 * provides implicit fence.
-	 */
-	if (fence)
-		PERSISTENT_BARRIER();
+    len = len + ((unsigned long)(buf) & (CACHELINE_SIZE - 1));
+    if (support_clwb) {
+        for (i = 0; i < len; i += CACHELINE_SIZE)
+            _mm_clwb(buf + i);
+    } else {
+        for (i = 0; i < len; i += CACHELINE_SIZE)
+            _mm_clflush(buf + i);
+    }
+    /* Do a fence only if asked. We often don't need to do a fence
+     * immediately after clflush because even if we get context switched
+     * between clflush and subsequent fence, the context switch operation
+     * provides implicit fence.
+     */
+    if (fence)
+        PERSISTENT_BARRIER();
 }
 
 /* =============== Integrity and Recovery Parameters =============== */
