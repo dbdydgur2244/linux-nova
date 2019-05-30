@@ -633,6 +633,7 @@ static ssize_t do_nova_cow_file_write(struct file *filp,
     struct nova_inode_info *si = NOVA_I(inode);
     struct nova_inode_info_header *sih = &si->header;
     struct super_block *sb = inode->i_sb;
+    struct nova_sb_info *sbi = NOVA_SB(sb);
     struct nova_inode *pi, inode_copy;
     struct nova_file_write_entry entry_data;
     struct nova_inode_update update;
@@ -835,6 +836,12 @@ out:
         nova_cleanup_incomplete_write(sb, sih, blocknr, allocated,
                         begin_tail, update.tail);
     else {
+        if (!sbi->num_backups) {
+            ret = nova_create_backup(sb);
+            if (!(ret >= 0)) {
+                return ret;
+            }
+        }
         nova_append_inode_to_backup(sb, pi);
     }
     NOVA_END_TIMING(do_cow_write_t, cow_write_time);

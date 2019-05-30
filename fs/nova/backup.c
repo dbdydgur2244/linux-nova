@@ -1015,7 +1015,7 @@ nova_create_backup(struct super_block *sb)
     }
 
     // for backup
-    // sbi->num_backups++;
+    sbi->num_backups++;
 
     ret = nova_insert_backup_info(sb, info);
 
@@ -1029,7 +1029,6 @@ nova_create_backup(struct super_block *sb)
 
 out:
     sbi->backup_taking = 0;
-    --(sbi->s_epoch_id);
     mutex_unlock(&sbi->s_lock);
     wake_up_interruptible(&sbi->backup_mmap_wait);
 
